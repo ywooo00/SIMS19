@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>사이트 담당자 관리</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body{
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+    /* 커스텀 스크롤바 */
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #f1f1f1;
+      border-radius: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+  </style>
+</head>
+<body class="bg-gray-50">
+  <div class="h-screen flex flex-col">
+    <!-- 헤더 -->
+    <div class="bg-white border-b border-gray-200 px-6 py-4 shrink-0">
+      <div class="flex items-center justify-between">
+        <h1 class="text-xl font-bold text-gray-900">사이트 담당자 관리</h1>
+        <div class="text-sm text-gray-500">
+          HOME &gt; 관리자 &gt; 전화번호 &gt; 
+          <span class="font-medium text-gray-900">사이트 담당자</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 검색 조건 -->
+    <div class="bg-white border-b border-gray-200 px-6 py-4 shrink-0">
+      <div class="bg-gray-50 rounded-lg border border-gray-200 p-4" style="display:flex; justify-content:space-between; gap:20px;">
+        <div class="flex items-center gap-4"  style="flex:1;">
+          <div class="w-40">
+            <label class="block text-xs text-gray-500 mb-1">사이트</label>
+            <select
+              id="search-site"
+              class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+              onchange="applyFilters()"
+            >
+              <option value="">전체</option>
+            </select>
+          </div>
+          <div class="w-32">
+            <label class="block text-xs text-gray-500 mb-1">지역</label>
+            <select
+              id="search-region"
+              class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+              onchange="applyFilters()"
+            >
+              <option value="">전체</option>
+            </select>
+          </div>
+          <div class="flex-1">
+            <label class="block text-xs text-gray-500 mb-1">검색</label>
+            <div class="relative">
+              <input
+                type="text"
+                id="search-keyword"
+                placeholder="담당자명, 부서, 휴대전화 검색..."
+                class="w-full border border-gray-300 rounded px-3 py-2 pl-9 text-sm focus:ring-2 focus:ring-blue-500"
+                oninput="applyFilters()"
+              />
+              <svg class="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+          </div>
+          
+        </div>
+        <div class="flex items-end">
+            <button
+              onclick="resetSearch()"
+              class="flex items-center gap-1 px-3 py-2 text-sm text-gray-600 border border-gray-300 rounded hover:bg-gray-100"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              초기화
+            </button>
+          </div>
+      </div>
+      
+    </div>
+
+    <!-- 메인 컨텐츠 -->
+    <div class="flex flex-1 overflow-hidden">
+      <!-- 왼쪽: 담당자 목록 -->
+      <div id="list-panel" class="w-full bg-white flex flex-col h-full transition-all">
+        <!-- 목록 헤더 -->
+        <div class="px-6 py-3 border-b border-gray-200 flex items-center justify-between shrink-0">
+          <div class="flex items-center gap-4">
+            <h2 class="font-semibold text-gray-800 flex items-center gap-2">
+              <span class="w-2 h-2 bg-blue-500 rounded-full"></span>
+              담당자 목록
+            </h2>
+            <span class="text-sm text-gray-500">총 <span id="total-count">8</span>명</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <button
+              onclick="deleteSelected()"
+              id="delete-btn"
+              class="px-3 py-1.5 border border-gray-300 text-gray-400 rounded text-xs font-medium"
+            >
+              삭제 (<span id="selected-count">0</span>)
+            </button>
+            <button
+              onclick="openDetailPanel(null)"
+              class="px-3 py-1.5 bg-blue-500 text-white rounded text-xs font-medium hover:bg-blue-600"
+            >
+              + 신규등록
+            </button>
+          </div>
+        </div>
+
+        <!-- 테이블 -->
+        <div class="flex-1 overflow-y-auto custom-scrollbar">
+          <table class="w-full text-sm">
+            <thead class="bg-gray-50 sticky top-0">
+              <tr>
+                <th class="w-10 py-3 px-3 border-b border-gray-200">
+                  <input
+                    type="checkbox"
+                    id="select-all"
+                    onchange="toggleSelectAll()"
+                    class="w-4 h-4 rounded"
+                  />
+                </th>
+                <th class="py-3 px-3 text-left text-gray-600 border-b w-24">사이트</th>
+                <th class="py-3 px-3 text-left text-gray-600 border-b w-24">담당자</th>
+                <th class="py-3 px-3 text-left text-gray-600 border-b w-16">지역</th>
+                <th class="py-3 px-3 text-left text-gray-600 border-b w-28">지점(부서)</th>
+                <th class="py-3 px-3 text-left text-gray-600 border-b w-16">직급</th>
+                <th class="py-3 px-3 text-left text-gray-600 border-b w-32">직통전화</th>
+                <th class="py-3 px-3 text-left text-gray-600 border-b w-32">휴대전화</th>
+                <th class="py-3 px-3 text-left text-gray-600 border-b">주소</th>
+              </tr>
+            </thead>
+            <tbody id="manager-tbody">
+              <!-- 동적으로 생성됨 -->
+            </tbody>
+          </table>
+
+          <!-- 빈 상태 -->
+          <div id="empty-state" class="hidden flex items-center justify-center h-40 text-gray-400">
+            <div class="text-center">
+              <svg class="w-12 h-12 mx-auto mb-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+              <p class="text-sm">검색 결과가 없습니다</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 페이지네이션 -->
+        <div class="px-6 py-3 border-t border-gray-200 flex items-center justify-between bg-gray-50 shrink-0">
+          <span class="text-xs text-gray-500" id="pagination-info">1-8 / 8명</span>
+          <div class="flex items-center gap-1" id="pagination-buttons">
+            <!-- 동적으로 생성됨 -->
+          </div>
+        </div>
+      </div>
+
+      <!-- 오른쪽: 상세/편집 패널 -->
+      <div id="detail-panel" class="hidden w-2/5 bg-gray-50 border-l border-gray-200 flex flex-col h-full">
+        <!-- 패널 헤더 -->
+        <div class="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shrink-0">
+          <div>
+            <h2 class="font-bold text-gray-800" id="detail-title">담당자 정보 수정</h2>
+            <p class="text-sm text-gray-500" id="detail-subtitle"></p>
+          </div>
+          <button
+            onclick="closeDetailPanel()"
+            class="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400"
+          >
+            ✕
+          </button>
+        </div>
+
+        <!-- 패널 바디 -->
+        <div class="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
+          <!-- 기본 정보 -->
+          <div class="bg-white rounded-lg border border-gray-200 p-4">
+            <h3 class="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+              <span class="w-1 h-4 bg-blue-500 rounded"></span>
+              기본 정보
+            </h3>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">사이트 <span class="text-red-500">*</span></label>
+                <select
+                  id="detail-site"
+                  class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">선택</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">담당자명 <span class="text-red-500">*</span></label>
+                <input
+                  type="text"
+                  id="detail-name"
+                  placeholder="담당자명"
+                  class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">지역 <span class="text-red-500">*</span></label>
+                <select
+                  id="detail-region"
+                  class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">선택</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">지점(부서) <span class="text-red-500">*</span></label>
+                <input
+                  type="text"
+                  id="detail-department"
+                  placeholder="부서명"
+                  class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div class="col-span-2">
+                <label class="block text-xs text-gray-500 mb-1">직급 <span class="text-red-500">*</span></label>
+                <input
+                  type="text"
+                  id="detail-position"
+                  placeholder="직급"
+                  class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- 연락처 -->
+          <div class="bg-white rounded-lg border border-gray-200 p-4">
+            <h3 class="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+              <span class="w-1 h-4 bg-green-500 rounded"></span>
+              연락처
+            </h3>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">대표전화 <span class="text-red-500">*</span></label>
+                <input
+                  type="text"
+                  id="detail-phone-main"
+                  placeholder="02-000-0000"
+                  class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">직통전화 <span class="text-red-500">*</span></label>
+                <input
+                  type="text"
+                  id="detail-phone"
+                  placeholder="02-000-0000"
+                  class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">휴대전화</label>
+                <input
+                  type="text"
+                  id="detail-mobile"
+                  placeholder="010-0000-0000"
+                  class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">FAX</label>
+                <input
+                  type="text"
+                  id="detail-fax"
+                  placeholder="02-000-0000"
+                  class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- 주소 -->
+          <div class="bg-white rounded-lg border border-gray-200 p-4">
+            <h3 class="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+              <span class="w-1 h-4 bg-orange-500 rounded"></span>
+              주소
+            </h3>
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">주소 <span class="text-red-500">*</span></label>
+              <input
+                type="text"
+                id="detail-address"
+                placeholder="주소 입력"
+                class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+
+          <!-- 참조사항 -->
+          <div class="bg-white rounded-lg border border-gray-200 p-4">
+            <h3 class="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+              <span class="w-1 h-4 bg-purple-500 rounded"></span>
+              참조사항
+            </h3>
+            <div>
+              <textarea
+                id="detail-note"
+                placeholder="참조사항을 입력하세요"
+                rows="4"
+                class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 resize-none"
+              ></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- 패널 푸터 -->
+        <div class="bg-white border-t border-gray-200 px-6 py-4 flex items-center justify-between shrink-0">
+          <button
+            id="detail-delete-btn"
+            onclick="deleteCurrentManager()"
+            class="hidden px-4 py-2 border border-red-500 text-red-500 rounded text-sm font-medium hover:bg-red-50"
+          >
+            삭제
+          </button>
+          <div id="detail-delete-placeholder"></div>
+          <div class="flex gap-2">
+            <button
+              onclick="closeDetailPanel()"
+              class="px-4 py-2 border border-gray-300 text-gray-700 rounded text-sm font-medium hover:bg-gray-50"
+            >
+              취소
+            </button>
+            <button
+              id="detail-save-btn"
+              onclick="saveManager()"
+              class="px-6 py-2 bg-blue-500 text-white rounded text-sm font-medium hover:bg-blue-600"
+            >
+              등록
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 데이터
+    const sites = ['TG', 'TG&Co', 'EPSON', 'FUJI XEROX', 'Amway', 'Huawei', 'ZTE', 'EZVIZ', 'LOGITECH', 'Lenovo', '이마트'];
+    const regions = ['서울', '인천', '경기', '강원', '충북', '충남', '대전', '전북', '전남', '광주', '경북', '경남', '대구', '부산', '울산', '제주'];
+
+    const managers = [
+      {
+        id: 1, site: 'TG&Co', name: '김영수', region: '서울', department: '기술지원팀', position: '팀장',
+        phone: '02-1234-5678', mobile: '010-1234-5678', fax: '02-1234-5679',
+        address: '서울 마포구 공덕1동 111', note: '주요 담당자'
+      },
+      {
+        id: 2, site: 'TG', name: '이철수', region: '서울', department: '영업팀', position: '과장',
+        phone: '02-2345-6789', mobile: '010-2345-6789', fax: '02-2345-6780',
+        address: '서울 강남구 역삼동 123', note: ''
+      },
+      {
+        id: 3, site: 'EPSON', name: '박민수', region: '경기', department: '서비스팀', position: '대리',
+        phone: '031-345-6789', mobile: '010-3456-7890', fax: '031-345-6790',
+        address: '경기 성남시 분당구 정자동 456', note: '프린터 담당'
+      },
+      {
+        id: 4, site: 'TG&Co', name: '정수진', region: '인천', department: '고객지원팀', position: '사원',
+        phone: '032-456-7890', mobile: '010-4567-8901', fax: '032-456-7891',
+        address: '인천 남동구 구월동 789', note: ''
+      },
+      {
+        id: 5, site: 'Huawei', name: '최동욱', region: '서울', department: '기술팀', position: '차장',
+        phone: '02-567-8901', mobile: '010-5678-9012', fax: '02-567-8902',
+        address: '서울 송파구 잠실동 321', note: '모바일 담당'
+      },
+      {
+        id: 6, site: 'LOGITECH', name: '강미영', region: '대전', department: '마케팅팀', position: '대리',
+        phone: '042-678-9012', mobile: '010-6789-0123', fax: '042-678-9013',
+        address: '대전 서구 둔산동 654', note: ''
+      },
+      {
+        id: 7, site: 'TG', name: '윤성호', region: '부산', department: '영업팀', position: '부장',
+        phone: '051-789-0123', mobile: '010-7890-1234', fax: '051-789-0124',
+        address: '부산 해운대구 우동 987', note: '남부지역 총괄'
+      },
+      {
+        id: 8, site: 'EZVIZ', name: '한지민', region: '광주', department: '기술지원팀', position: '과장',
+        phone: '062-890-1234', mobile: '010-8901-2345', fax: '062-890-1235',
+        address: '광주 서구 치평동 246', note: 'CCTV 담당'
+      }
+    ];
+
+    // 상태
+    let currentPage = 1;
+    const ITEMS_PER_PAGE = 10;
+    let selectedRows = [];
+    let currentManager = null;
+
+    // 초기화
+    function init() {
+      populateSelects();
+      applyFilters();
+    }
+
+    // 셀렉트 박스 채우기
+    function populateSelects() {
+      const siteSelect = document.getElementById('search-site');
+      const regionSelect = document.getElementById('search-region');
+      const detailSiteSelect = document.getElementById('detail-site');
+      const detailRegionSelect = document.getElementById('detail-region');
+      
+      siteSelect.innerHTML = '<option value="">전체</option>' + 
+        sites.map(s => `<option value="${s}">${s}</option>`).join('');
+      
+      regionSelect.innerHTML = '<option value="">전체</option>' + 
+        regions.map(r => `<option value="${r}">${r}</option>`).join('');
+      
+      detailSiteSelect.innerHTML = '<option value="">선택</option>' + 
+        sites.map(s => `<option value="${s}">${s}</option>`).join('');
+      
+      detailRegionSelect.innerHTML = '<option value="">선택</option>' + 
+        regions.map(r => `<option value="${r}">${r}</option>`).join('');
+    }
+
+    // 필터 적용
+    function applyFilters() {
+      const site = document.getElementById('search-site').value;
+      const region = document.getElementById('search-region').value;
+      const keyword = document.getElementById('search-keyword').value.toLowerCase();
+      
+      let filtered = managers.filter(manager => {
+        const matchSite = !site || manager.site === site;
+        const matchRegion = !region || manager.region === region;
+        const matchKeyword = !keyword ||
+          manager.name.toLowerCase().includes(keyword) ||
+          manager.department.toLowerCase().includes(keyword) ||
+          manager.mobile.includes(keyword);
+        return matchSite && matchRegion && matchKeyword;
+      });
+      
+      currentPage = 1;
+      renderTable(filtered);
+      renderPagination(filtered);
+      updateTotalCount(filtered.length);
+    }
+
+    // 테이블 렌더링
+    function renderTable(filteredManagers) {
+      const tbody = document.getElementById('manager-tbody');
+      const emptyState = document.getElementById('empty-state');
+      
+      const totalPages = Math.ceil(filteredManagers.length / ITEMS_PER_PAGE);
+      const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
+      const endIdx = startIdx + ITEMS_PER_PAGE;
+      const pageManagers = filteredManagers.slice(startIdx, endIdx);
+      
+      if (pageManagers.length === 0) {
+        tbody.innerHTML = '';
+        emptyState.classList.remove('hidden');
+        return;
+      }
+      
+      emptyState.classList.add('hidden');
+      
+      tbody.innerHTML = pageManagers.map(manager => `
+        <tr
+          onclick="selectManager(${manager.id})"
+          class="border-b border-gray-100 cursor-pointer transition-colors ${
+            currentManager?.id === manager.id ? 'bg-blue-50' : 'hover:bg-gray-50'
+          }"
+        >
+          <td class="py-3 px-3 text-center" onclick="event.stopPropagation()">
+            <input
+              type="checkbox"
+              ${selectedRows.includes(manager.id) ? 'checked' : ''}
+              onchange="toggleRow(${manager.id})"
+              class="w-4 h-4 rounded"
+            />
+          </td>
+          <td class="py-3 px-3">
+            <span class="px-2 py-0.5 bg-blue-100 text-blue-600 rounded text-xs font-medium">
+              ${manager.site}
+            </span>
+          </td>
+          <td class="py-3 px-3">
+            <p class="font-medium ${currentManager?.id === manager.id ? 'text-blue-700' : 'text-gray-800'}">
+              ${manager.name}
+            </p>
+          </td>
+          <td class="py-3 px-3 text-gray-600">${manager.region}</td>
+          <td class="py-3 px-3 text-gray-600">${manager.department}</td>
+          <td class="py-3 px-3 text-gray-600">${manager.position}</td>
+          <td class="py-3 px-3 text-gray-500 font-mono text-xs">${manager.phone}</td>
+          <td class="py-3 px-3 text-gray-500 font-mono text-xs">${manager.mobile}</td>
+          <td class="py-3 px-3 text-gray-600 truncate max-w-xs">${manager.address}</td>
+        </tr>
+      `).join('');
+      
+      updateSelectAllCheckbox(pageManagers);
+    }
+
+    // 페이지네이션 렌더링
+    function renderPagination(filteredManagers) {
+      const totalPages = Math.ceil(filteredManagers.length / ITEMS_PER_PAGE);
+      
+      const startIdx = (currentPage - 1) * ITEMS_PER_PAGE + 1;
+      const endIdx = Math.min(currentPage * ITEMS_PER_PAGE, filteredManagers.length);
+      
+      document.getElementById('pagination-info').textContent = 
+        filteredManagers.length > 0 ? `${startIdx}-${endIdx} / ${filteredManagers.length}명` : '0명';
+      
+      if (totalPages <= 1) {
+        document.getElementById('pagination-buttons').innerHTML = '<div></div>';
+        return;
+      }
+      
+      const maxVisible = 5;
+      let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+      let end = Math.min(totalPages, start + maxVisible - 1);
+      
+      if (end - start + 1 < maxVisible) {
+        start = Math.max(1, end - maxVisible + 1);
+      }
+      
+      let pages = [];
+      for (let i = start; i <= end; i++) {
+        pages.push(i);
+      }
+      
+      const buttonsHtml = `
+        <button
+          onclick="goToPage(1)"
+          ${currentPage === 1 ? 'disabled' : ''}
+          class="px-2 py-1 text-xs rounded ${currentPage === 1 ? 'text-gray-300' : 'text-gray-600 hover:bg-gray-100'}"
+        >«</button>
+        <button
+          onclick="goToPage(${Math.max(1, currentPage - 1)})"
+          ${currentPage === 1 ? 'disabled' : ''}
+          class="px-2 py-1 text-xs rounded ${currentPage === 1 ? 'text-gray-300' : 'text-gray-600 hover:bg-gray-100'}"
+        >‹</button>
+        ${pages.map(p => `
+          <button
+            onclick="goToPage(${p})"
+            class="px-2.5 py-1 text-xs rounded ${p === currentPage ? 'bg-blue-500 text-white' : 'text-gray-600 hover:bg-gray-100'}"
+          >${p}</button>
+        `).join('')}
+        <button
+          onclick="goToPage(${Math.min(totalPages, currentPage + 1)})"
+          ${currentPage === totalPages ? 'disabled' : ''}
+          class="px-2 py-1 text-xs rounded ${currentPage === totalPages ? 'text-gray-300' : 'text-gray-600 hover:bg-gray-100'}"
+        >›</button>
+        <button
+          onclick="goToPage(${totalPages})"
+          ${currentPage === totalPages ? 'disabled' : ''}
+          class="px-2 py-1 text-xs rounded ${currentPage === totalPages ? 'text-gray-300' : 'text-gray-600 hover:bg-gray-100'}"
+        >»</button>
+      `;
+      
+      document.getElementById('pagination-buttons').innerHTML = buttonsHtml;
+    }
+
+    // 페이지 이동
+    function goToPage(page) {
+      currentPage = page;
+      applyFilters();
+    }
+
+    // 총 개수 업데이트
+    function updateTotalCount(count) {
+      document.getElementById('total-count').textContent = count;
+    }
+
+    // 검색 초기화
+    function resetSearch() {
+      document.getElementById('search-site').value = '';
+      document.getElementById('search-region').value = '';
+      document.getElementById('search-keyword').value = '';
+      currentPage = 1;
+      applyFilters();
+    }
+
+    // 행 선택
+    function toggleRow(id) {
+      if (selectedRows.includes(id)) {
+        selectedRows = selectedRows.filter(i => i !== id);
+      } else {
+        selectedRows.push(id);
+      }
+      updateSelectedCount();
+      applyFilters();
+    }
+
+    // 전체 선택
+    function toggleSelectAll() {
+      const filtered = getFilteredManagers();
+      const pageManagers = filtered.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+      const pageIds = pageManagers.map(m => m.id);
+      
+      const allSelected = pageIds.every(id => selectedRows.includes(id));
+      
+      if (allSelected) {
+        selectedRows = selectedRows.filter(id => !pageIds.includes(id));
+      } else {
+        selectedRows = [...new Set([...selectedRows, ...pageIds])];
+      }
+      
+      updateSelectedCount();
+      applyFilters();
+    }
+
+    // 전체 선택 체크박스 업데이트
+    function updateSelectAllCheckbox(pageManagers) {
+      const selectAll = document.getElementById('select-all');
+      const pageIds = pageManagers.map(m => m.id);
+      selectAll.checked = pageManagers.length > 0 && pageIds.every(id => selectedRows.includes(id));
+    }
+
+    // 선택 개수 업데이트
+    function updateSelectedCount() {
+      document.getElementById('selected-count').textContent = selectedRows.length;
+      const deleteBtn = document.getElementById('delete-btn');
+      
+      if (selectedRows.length > 0) {
+        deleteBtn.className = 'px-3 py-1.5 border rounded text-xs font-medium border-red-500 text-red-500 hover:bg-red-50';
+      } else {
+        deleteBtn.className = 'px-3 py-1.5 border rounded text-xs font-medium border-gray-300 text-gray-400';
+      }
+    }
+
+    // 필터링된 담당자 가져오기
+    function getFilteredManagers() {
+      const site = document.getElementById('search-site').value;
+      const region = document.getElementById('search-region').value;
+      const keyword = document.getElementById('search-keyword').value.toLowerCase();
+      
+      return managers.filter(manager => {
+        const matchSite = !site || manager.site === site;
+        const matchRegion = !region || manager.region === region;
+        const matchKeyword = !keyword ||
+          manager.name.toLowerCase().includes(keyword) ||
+          manager.department.toLowerCase().includes(keyword) ||
+          manager.mobile.includes(keyword);
+        return matchSite && matchRegion && matchKeyword;
+      });
+    }
+
+    // 담당자 선택
+    function selectManager(id) {
+      const manager = managers.find(m => m.id === id);
+      if (manager) {
+        openDetailPanel(manager);
+      }
+    }
+
+    // 상세 패널 열기
+    function openDetailPanel(manager) {
+      const listPanel = document.getElementById('list-panel');
+      const detailPanel = document.getElementById('detail-panel');
+      
+      listPanel.className = 'w-3/5 bg-white flex flex-col h-full transition-all';
+      detailPanel.classList.remove('hidden');
+      
+      if (manager) {
+        // 수정 모드
+        currentManager = { ...manager };
+        
+        document.getElementById('detail-title').textContent = '담당자 정보 수정';
+        document.getElementById('detail-subtitle').textContent = `${manager.name} (${manager.site})`;
+        document.getElementById('detail-delete-btn').classList.remove('hidden');
+        document.getElementById('detail-delete-placeholder').innerHTML = '';
+        document.getElementById('detail-save-btn').textContent = '수정';
+        
+        // 폼 채우기
+        document.getElementById('detail-site').value = manager.site;
+        document.getElementById('detail-name').value = manager.name;
+        document.getElementById('detail-region').value = manager.region;
+        document.getElementById('detail-department').value = manager.department;
+        document.getElementById('detail-position').value = manager.position;
+        document.getElementById('detail-phone-main').value = manager.phone;
+        document.getElementById('detail-phone').value = manager.phone;
+        document.getElementById('detail-mobile').value = manager.mobile;
+        document.getElementById('detail-fax').value = manager.fax;
+        document.getElementById('detail-address').value = manager.address;
+        document.getElementById('detail-note').value = manager.note;
+      } else {
+        // 신규 등록 모드
+        currentManager = { id: null };
+        
+        document.getElementById('detail-title').textContent = '신규 담당자 등록';
+        document.getElementById('detail-subtitle').textContent = '';
+        document.getElementById('detail-delete-btn').classList.add('hidden');
+        document.getElementById('detail-delete-placeholder').innerHTML = '<div></div>';
+        document.getElementById('detail-save-btn').textContent = '등록';
+        
+        // 폼 초기화
+        document.getElementById('detail-site').value = '';
+        document.getElementById('detail-name').value = '';
+        document.getElementById('detail-region').value = '';
+        document.getElementById('detail-department').value = '';
+        document.getElementById('detail-position').value = '';
+        document.getElementById('detail-phone-main').value = '';
+        document.getElementById('detail-phone').value = '';
+        document.getElementById('detail-mobile').value = '';
+        document.getElementById('detail-fax').value = '';
+        document.getElementById('detail-address').value = '';
+        document.getElementById('detail-note').value = '';
+      }
+    }
+
+    // 상세 패널 닫기
+    function closeDetailPanel() {
+      const listPanel = document.getElementById('list-panel');
+      const detailPanel = document.getElementById('detail-panel');
+      
+      listPanel.className = 'w-full bg-white flex flex-col h-full transition-all';
+      detailPanel.classList.add('hidden');
+      
+      currentManager = null;
+      applyFilters();
+    }
+
+    // 삭제 선택된 항목
+    function deleteSelected() {
+      if (selectedRows.length === 0) return;
+      
+      if (confirm(`선택한 ${selectedRows.length}명의 담당자를 삭제하시겠습니까?`)) {
+        selectedRows = [];
+        if (currentManager && selectedRows.includes(currentManager.id)) {
+          closeDetailPanel();
+        }
+        updateSelectedCount();
+        applyFilters();
+        alert('삭제되었습니다.');
+      }
+    }
+
+    // 현재 담당자 삭제
+    function deleteCurrentManager() {
+      if (!currentManager || !currentManager.id) return;
+      
+      if (confirm('이 담당자를 삭제하시겠습니까?')) {
+        closeDetailPanel();
+        alert('삭제되었습니다.');
+      }
+    }
+
+    // 저장
+    function saveManager() {
+      const site = document.getElementById('detail-site').value;
+      const name = document.getElementById('detail-name').value;
+      const region = document.getElementById('detail-region').value;
+      const department = document.getElementById('detail-department').value;
+      const position = document.getElementById('detail-position').value;
+      const phone = document.getElementById('detail-phone').value;
+      const address = document.getElementById('detail-address').value;
+      
+      if (!site || !name || !region || !department || !position || !phone || !address) {
+        alert('필수 항목을 입력해주세요.');
+        return;
+      }
+      
+      if (currentManager && currentManager.id) {
+        alert('담당자 정보가 수정되었습니다.');
+      } else {
+        alert('새 담당자가 등록되었습니다.');
+      }
+      
+      closeDetailPanel();
+    }
+
+    // 초기화 실행
+    init();
+  </script>
+</body>
+</html>
